@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Multidimensional jagged array"
 license = "MIT"
-keywords = ["jagged_array", "data_structure", "array", "contiguous buffer"]
+keywords = ["jagged_array", "data_structure", "array", "contiguous_buffer"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 categories = ["data-structures"]
 [dependencies]
