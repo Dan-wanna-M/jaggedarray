@@ -1,13 +1,12 @@
-use core::slice;
 use generic_array::{sequence::GenericSequence, ArrayLength, GenericArray};
 use std::{
-    iter::{once, zip},
-    ops::{Add, Index, IndexMut, Sub},
+    iter::zip,
+    ops::{Index, IndexMut},
     vec,
 };
-use typenum::{Const, IsEqual, NonZero, Sub1, Sum, ToUInt, Unsigned, Zero, B1, N1, U, U1, U2};
+use typenum::{Const, IsEqual, NonZero, Sub1, ToUInt, Unsigned, B1, U, U2};
 
-use crate::utils::{self, Idx};
+use crate::utils::Idx;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct JaggedArray<TVal, TNum, const N: usize>
@@ -21,10 +20,6 @@ where
     buffer: Vec<TVal>,
 }
 
-pub struct Iter<'a, TVal> {
-    iter: slice::Iter<'a, TVal>,
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct JaggedArrayView<'a, TVal, TNum, const N: usize>
 where
@@ -36,6 +31,7 @@ where
     indices: GenericArray<&'a [TNum], Sub1<U<N>>>,
     buffer: &'a [TVal],
 }
+
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct JaggedArrayMutView<'a, TVal, TNum, const N: usize>
 where
@@ -98,6 +94,7 @@ where
             buffer: Vec::with_capacity(*capacity.last().unwrap()),
         }
     }
+    #[inline]
     pub fn reserve(&mut self, additional: [usize; N]) {
         for (index, additional) in zip(self.indices.iter_mut(), additional.iter()) {
             index.reserve(*additional);
@@ -113,6 +110,7 @@ where
             index.push(0.into());
         }
     }
+    #[inline]
     pub fn new_row<const DIM: usize>(&mut self)
     where
         U<N>: std::ops::Sub<U<DIM>>,
@@ -139,19 +137,68 @@ where
     pub fn pop_from_last_row(&mut self) -> Option<TVal> {
         let mut iter = self.indices.last_mut().unwrap().iter_mut().rev();
         let last = iter.next().unwrap();
-        if *last != 0.into() && iter.next().unwrap() > last {
+        if *last != 0.into() && iter.next().unwrap() < last {
             *last -= 1.into();
             self.buffer.pop()
         } else {
             None
         }
     }
+    #[inline]
     pub fn extend_last_row(&mut self, values: impl Iterator<Item = TVal>) {
         let initial = self.buffer.len();
         self.buffer.extend(values);
         *self.indices.last_mut().unwrap().last_mut().unwrap() +=
             (self.buffer.len() - initial).into();
     }
+    #[inline]
+    pub fn extend_last_row_from_slice(&mut self, values: &[TVal])
+    where
+        TVal: Clone,
+    {
+        let initial = self.buffer.len();
+        self.buffer.extend_from_slice(values);
+        *self.indices.last_mut().unwrap().last_mut().unwrap() +=
+            (self.buffer.len() - initial).into();
+    }
+
+    pub fn append_from_view<const M: usize>(&mut self, other: &JaggedArrayView<TVal, TNum, M>)
+    where
+        U<N>: std::ops::Sub<U<M>>,
+        <U<N> as std::ops::Sub<U<M>>>::Output: Unsigned,
+        U<M>: std::ops::Sub<B1>,
+        <U<M> as std::ops::Sub<B1>>::Output: ArrayLength,
+        U<M>: ArrayLength,
+        Const<N>: ToUInt,
+        Const<M>: ToUInt,
+        TVal: Clone,
+    {
+        let skipped = N - M;
+        for (dst, src) in zip(self.indices.iter_mut().skip(skipped), other.indices.iter()) {
+            let last = *dst.last().unwrap();
+            dst.extend(src.iter().skip(1).map(|&x| x + last));
+        }
+        self.buffer.extend_from_slice(other.buffer);
+    }
+
+    pub fn append<const M: usize>(&mut self, other: JaggedArray<TVal, TNum, M>)
+    where
+        U<N>: std::ops::Sub<U<M>>,
+        <U<N> as std::ops::Sub<U<M>>>::Output: Unsigned,
+        U<M>: std::ops::Sub<B1>,
+        <U<M> as std::ops::Sub<B1>>::Output: ArrayLength,
+        U<M>: ArrayLength,
+        Const<N>: ToUInt,
+        Const<M>: ToUInt,
+    {
+        let skipped = N - M;
+        for (dst, src) in zip(self.indices.iter_mut().skip(skipped), other.indices.iter()) {
+            let last = *dst.last().unwrap();
+            dst.extend(src.iter().skip(1).map(|&x| x + last));
+        }
+        self.buffer.extend(other.buffer);
+    }
+
     // It may be possible to implement a drain-like variant of this method
     pub fn remove_last_row<const DIM: usize>(&mut self) -> Option<()>
     where
@@ -182,12 +229,8 @@ where
 pub trait JaggedArrayViewTrait<TVal, TNum, const N: usize>: Index<[usize; N]>
 where
     TNum: Idx<TNum>,
-    U<N>: std::ops::Sub<U2> + std::ops::Sub<typenum::B1> + ArrayLength,
-    <U<N> as std::ops::Sub<typenum::B1>>::Output: ArrayLength,
-    <U<N> as std::ops::Sub<U2>>::Output: ArrayLength,
-    <U<N> as std::ops::Sub<typenum::B1>>::Output: std::ops::Sub<typenum::B1>,
-    <<U<N> as std::ops::Sub<typenum::B1>>::Output as std::ops::Sub<typenum::B1>>::Output:
-        ArrayLength,
+    U<N>: std::ops::Sub<B1>,
+    <U<N> as std::ops::Sub<B1>>::Output: ArrayLength,
     Const<N>: ToUInt,
 {
     fn is_empty(&self) -> bool;
@@ -197,6 +240,11 @@ where
         index: [usize; M],
     ) -> JaggedArrayView<TVal, TNum, R>
     where
+        U<N>: std::ops::Sub<U2> + std::ops::Sub<typenum::B1>,
+        <U<N> as std::ops::Sub<U2>>::Output: ArrayLength,
+        <U<N> as std::ops::Sub<typenum::B1>>::Output: std::ops::Sub<typenum::B1>,
+        <<U<N> as std::ops::Sub<typenum::B1>>::Output as std::ops::Sub<typenum::B1>>::Output:
+            ArrayLength,
         U<N>: std::ops::Sub<U<M>>,
         <U<N> as std::ops::Sub<U<M>>>::Output: IsEqual<U<R>>,
         U<R>: std::ops::Sub<B1>,
@@ -214,12 +262,8 @@ pub trait JaggedArrayMutViewTrait<TVal, TNum, const N: usize>:
     JaggedArrayViewTrait<TVal, TNum, N> + IndexMut<[usize; N]>
 where
     TNum: Idx<TNum>,
-    U<N>: std::ops::Sub<U2> + std::ops::Sub<typenum::B1> + ArrayLength,
-    <U<N> as std::ops::Sub<typenum::B1>>::Output: ArrayLength,
-    <U<N> as std::ops::Sub<U2>>::Output: ArrayLength,
-    <U<N> as std::ops::Sub<typenum::B1>>::Output: std::ops::Sub<typenum::B1>,
-    <<U<N> as std::ops::Sub<typenum::B1>>::Output as std::ops::Sub<typenum::B1>>::Output:
-        ArrayLength,
+    U<N>: std::ops::Sub<B1>,
+    <U<N> as std::ops::Sub<B1>>::Output: ArrayLength,
     Const<N>: ToUInt,
 {
     fn view_mut<const M: usize, const R: usize>(
@@ -227,6 +271,11 @@ where
         index: [usize; M],
     ) -> JaggedArrayMutView<TVal, TNum, R>
     where
+        U<N>: std::ops::Sub<U2> + std::ops::Sub<typenum::B1>,
+        <U<N> as std::ops::Sub<U2>>::Output: ArrayLength,
+        <U<N> as std::ops::Sub<typenum::B1>>::Output: std::ops::Sub<typenum::B1>,
+        <<U<N> as std::ops::Sub<typenum::B1>>::Output as std::ops::Sub<typenum::B1>>::Output:
+            ArrayLength,
         U<N>: std::ops::Sub<U<M>>,
         <U<N> as std::ops::Sub<U<M>>>::Output: IsEqual<U<R>>,
         U<R>: std::ops::Sub<B1>,
@@ -241,14 +290,11 @@ macro_rules! impl_view {
         impl<$( $gen ),+,const N:usize> JaggedArrayViewTrait<TVal, TNum, N>
             for $typ<$($gen),+, N>
         where
-            TNum: Idx<TNum>,
-            U<N>: std::ops::Sub<U2> + std::ops::Sub<typenum::B1> + ArrayLength,
-            <U<N> as std::ops::Sub<typenum::B1>>::Output: ArrayLength,
-            <U<N> as std::ops::Sub<U2>>::Output: ArrayLength,
-            <U<N> as std::ops::Sub<typenum::B1>>::Output: std::ops::Sub<typenum::B1>,
-            <<U<N> as std::ops::Sub<typenum::B1>>::Output as std::ops::Sub<typenum::B1>>::Output:
-                ArrayLength,
-            Const<N>: ToUInt,
+        TNum: Idx<TNum>,
+        U<N>: std::ops::Sub<B1>,
+        U<N>:ArrayLength,
+        <U<N> as std::ops::Sub<B1>>::Output: ArrayLength,
+        Const<N>: ToUInt,
         {
             #[inline]
             fn dims(&self) -> [usize; N] {
@@ -269,14 +315,19 @@ macro_rules! impl_view {
                 index: [usize; M],
             ) -> JaggedArrayView<TVal, TNum, R>
             where
-                U<N>: std::ops::Sub<U<M>>,
-                <U<N> as std::ops::Sub<U<M>>>::Output: IsEqual<U<R>>,
-                U<R>: std::ops::Sub<B1>,
-                <U<R> as std::ops::Sub<B1>>::Output: ArrayLength,
-                <<U<N> as std::ops::Sub<U<M>>>::Output as IsEqual<U<R>>>::Output: NonZero,
-                Const<N>: ToUInt,
-                Const<M>: ToUInt,
-                Const<R>: ToUInt,
+            U<N>: std::ops::Sub<U2> + std::ops::Sub<typenum::B1>,
+            <U<N> as std::ops::Sub<U2>>::Output: ArrayLength,
+            <U<N> as std::ops::Sub<typenum::B1>>::Output: std::ops::Sub<typenum::B1>,
+            <<U<N> as std::ops::Sub<typenum::B1>>::Output as std::ops::Sub<typenum::B1>>::Output:
+                ArrayLength,
+            U<N>: std::ops::Sub<U<M>>,
+            <U<N> as std::ops::Sub<U<M>>>::Output: IsEqual<U<R>>,
+            U<R>: std::ops::Sub<B1>,
+            <U<R> as std::ops::Sub<B1>>::Output: ArrayLength,
+            <<U<N> as std::ops::Sub<U<M>>>::Output as IsEqual<U<R>>>::Output: NonZero,
+            Const<N>: ToUInt,
+            Const<M>: ToUInt,
+            Const<R>: ToUInt
             {
                 let (first,remaining) = self.indices.split_at(M);
                 let (index_buffer, self_indices) = first.split_first().unwrap();
@@ -316,7 +367,7 @@ macro_rules! impl_view {
         impl<$( $gen ),+,const N:usize> Index<[usize; N]> for $typ<$($gen),+, N>
         where
             TNum: Idx<TNum>,
-            U<N>: std::ops::Sub<B1> + ArrayLength,
+            U<N>: std::ops::Sub<B1>,
             <U<N> as std::ops::Sub<B1>>::Output: ArrayLength,
             Const<N>: ToUInt,
         {
@@ -343,14 +394,11 @@ macro_rules! impl_view_mut {
         impl<$( $gen ),+,const N:usize> JaggedArrayMutViewTrait<TVal, TNum, N>
             for $typ<$($gen),+, N>
         where
-            TNum: Idx<TNum>,
-            U<N>: std::ops::Sub<U2> + std::ops::Sub<typenum::B1> + ArrayLength,
-            <U<N> as std::ops::Sub<typenum::B1>>::Output: ArrayLength,
-            <U<N> as std::ops::Sub<U2>>::Output: ArrayLength,
-            <U<N> as std::ops::Sub<typenum::B1>>::Output: std::ops::Sub<typenum::B1>,
-            <<U<N> as std::ops::Sub<typenum::B1>>::Output as std::ops::Sub<typenum::B1>>::Output:
-                ArrayLength,
-            Const<N>: ToUInt,
+        TNum: Idx<TNum>,
+        U<N>: std::ops::Sub<B1>,
+        U<N>:ArrayLength,
+        <U<N> as std::ops::Sub<B1>>::Output: ArrayLength,
+        Const<N>: ToUInt,
         {
             /// Rust const generics does not support arithmetic, so we have to specify the view's dimension(R) as well
             fn view_mut<const M: usize, const R: usize>(
@@ -358,14 +406,19 @@ macro_rules! impl_view_mut {
                 index: [usize; M],
             ) -> JaggedArrayMutView<TVal, TNum, R>
             where
-                U<N>: std::ops::Sub<U<M>>,
-                <U<N> as std::ops::Sub<U<M>>>::Output: IsEqual<U<R>>,
-                U<R>: std::ops::Sub<B1>,
-                <U<R> as std::ops::Sub<B1>>::Output: ArrayLength,
-                <<U<N> as std::ops::Sub<U<M>>>::Output as IsEqual<U<R>>>::Output: NonZero,
-                Const<N>: ToUInt,
-                Const<M>: ToUInt,
-                Const<R>: ToUInt,
+            U<N>: std::ops::Sub<U2> + std::ops::Sub<typenum::B1>,
+            <U<N> as std::ops::Sub<U2>>::Output: ArrayLength,
+            <U<N> as std::ops::Sub<typenum::B1>>::Output: std::ops::Sub<typenum::B1>,
+            <<U<N> as std::ops::Sub<typenum::B1>>::Output as std::ops::Sub<typenum::B1>>::Output:
+                ArrayLength,
+            U<N>: std::ops::Sub<U<M>>,
+            <U<N> as std::ops::Sub<U<M>>>::Output: IsEqual<U<R>>,
+            U<R>: std::ops::Sub<B1>,
+            <U<R> as std::ops::Sub<B1>>::Output: ArrayLength,
+            <<U<N> as std::ops::Sub<U<M>>>::Output as IsEqual<U<R>>>::Output: NonZero,
+            Const<N>: ToUInt,
+            Const<M>: ToUInt,
+            Const<R>: ToUInt
             {
                 let (first,remaining) = self.indices.split_at_mut(M);
                 let (index_buffer, self_indices) = first.split_first_mut().unwrap();

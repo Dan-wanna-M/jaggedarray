@@ -1,5 +1,7 @@
 use std::{
-    fmt::Debug, hash::Hash, ops::{Add, AddAssign, SubAssign}
+    fmt::Debug,
+    hash::Hash,
+    ops::{Add, AddAssign, SubAssign},
 };
 extern crate generic_array;
 
@@ -66,19 +68,43 @@ macro_rules! idx_impl {
         impl Idx<$t> for $t {}
     };
 }
-
 pub trait Idx<TNum>:
-    Into<usize> + Add<TNum, Output = TNum> + From<usize> + AddAssign<TNum>+SubAssign<TNum>+ Clone+Copy+Debug+PartialEq+Eq+PartialOrd+Ord+Hash+Default
+    Into<usize>
+    + Add<TNum, Output = TNum>
+    + From<usize>
+    + AddAssign<TNum>
+    + SubAssign<TNum>
+    + Clone
+    + Copy
+    + Debug
+    + PartialEq
+    + Eq
+    + PartialOrd
+    + Ord
+    + Hash
+    + Default
 {
-
 }
-#[cfg(any(target_pointer_width="8",target_pointer_width="16",target_pointer_width="32",target_pointer_width="64"))]
+#[cfg(any(
+    target_pointer_width = "8",
+    target_pointer_width = "16",
+    target_pointer_width = "32",
+    target_pointer_width = "64"
+))]
 idx_impl!(U8, u8);
-#[cfg(any(target_pointer_width="16",target_pointer_width="32",target_pointer_width="64"))]
+#[cfg(any(
+    target_pointer_width = "16",
+    target_pointer_width = "32",
+    target_pointer_width = "64"
+))]
 idx_impl!(U16, u16);
-#[cfg(any(target_pointer_width="32",target_pointer_width="64",target_pointer_width="128"))]
+#[cfg(any(
+    target_pointer_width = "32",
+    target_pointer_width = "64",
+    target_pointer_width = "128"
+))]
 idx_impl!(U32, u32);
-#[cfg(any(target_pointer_width="64",target_pointer_width="128"))]
+#[cfg(any(target_pointer_width = "64", target_pointer_width = "128"))]
 idx_impl!(U64, u64);
-#[cfg(target_pointer_width="128")]
+#[cfg(target_pointer_width = "128")]
 idx_impl!(U128, u128);
