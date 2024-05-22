@@ -10,3 +10,13 @@ categories = ["data-structures"]
 [dependencies]
 typenum = "1.17.0"
 generic-array = "1.0.0"
+num = "0.4.3"
+[profile.release]
+lto = true
+strip = "symbols"
+panic = "abort"
+[dev-dependencies]
+criterion = { version = "0.4", features = ["html_reports"] }
+[[bench]]
+name = "my_benchmark"
+harness = false

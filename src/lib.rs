@@ -1,14 +1,12 @@
 pub mod jagged_array;
-#[macro_use]
-pub mod utils;
 #[cfg(test)]
 mod tests {
-    use crate::{jagged_array::JaggedArrayViewTrait, utils::U16};
+    use crate::{jagged_array::JaggedArrayViewTrait};
 
     use super::*;
     #[test]
     fn push_1d_test() {
-        let mut data = jagged_array::JaggedArray::<i32, U16, 1>::new();
+        let mut data = jagged_array::JaggedArray::<i32, u16, 1>::new();
         // data.new_row::<0>();
         // data.view();
         data.push_to_last_row(1);
@@ -25,25 +23,43 @@ mod tests {
 
     #[test]
     fn push_2d_test() {
-        let mut data = jagged_array::JaggedArray::<i32, U16, 2>::new();
+        let mut data = jagged_array::JaggedArray::<i32, u16, 2>::new();
         data.new_row::<0>();
         data.push_to_last_row(1);
         assert!(data[[0, 0]] == 1);
         assert!(data.view::<1, 1>([0])[[0]] == 1);
+        unsafe {
+            assert!(data.view_unchecked::<1, 1>([0])[[0]] == 1);
+        }
+        unsafe {
+            assert!(*data.get_unchecked([0,0]) == 1);
+        }
         data.new_row::<0>();
-        data.extend_last_row([4,5,6].into_iter());
+        data.extend_last_row([4, 5, 6].into_iter());
         assert!(data[[1, 0]] == 4);
         assert!(data.view::<1, 1>([1])[[0]] == 4);
+        unsafe {
+            assert!(data.view_unchecked::<1, 1>([1])[[0]] == 4);
+        }
         assert!(data[[1, 1]] == 5);
         assert!(data.view::<1, 1>([1])[[1]] == 5);
+        unsafe {
+            assert!(data.view_unchecked::<1, 1>([1])[[1]] == 5);
+        }
         assert!(data[[1, 2]] == 6);
         assert!(data.view::<1, 1>([1])[[2]] == 6);
+        unsafe {
+            assert!(data.view_unchecked::<1, 1>([1])[[2]] == 6);
+        }
         data.new_row::<0>();
         data.new_row::<0>();
         data.push_to_last_row(7);
         assert!(data[[3, 0]] == 7);
         assert!(data.view::<1, 1>([3])[[0]] == 7);
-        assert!(data.pop_from_last_row()==Some(7));
+        unsafe {
+            assert!(data.view_unchecked::<1, 1>([3])[[0]] == 7);
+        }
+        assert!(data.pop_from_last_row() == Some(7));
         data.remove_last_row::<0>();
         assert!(data[[0, 0]] == 1);
         data.remove_last_row::<0>();
@@ -54,7 +70,7 @@ mod tests {
 
     #[test]
     fn push_3d_test() {
-        let mut data = jagged_array::JaggedArray::<i32, U16, 3>::new();
+        let mut data = jagged_array::JaggedArray::<i32, u16, 3>::new();
         data.new_row::<0>();
         data.new_row::<1>();
         data.push_to_last_row(1);
@@ -100,7 +116,7 @@ mod tests {
     }
     #[test]
     fn push_4d_test() {
-        let mut data = jagged_array::JaggedArray::<i32, U16, 4>::new();
+        let mut data = jagged_array::JaggedArray::<i32, u16, 4>::new();
         data.new_row::<0>();
         data.new_row::<1>();
         data.new_row::<2>();
