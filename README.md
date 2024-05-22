@@ -3,7 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/jaggedarray)](https://crates.io/crates/jaggedarray)
 [![docs.rs](https://docs.rs/jaggedarray/badge.svg)](https://docs.rs/jaggedarray)
 
-This crate provides multidimensional jagged arrays. Most functionalities that you expect a jagged array to support (in an efficient manner) are supported.
+This crate provides multidimensional jagged arrays. It should be usable though some advanced features are not fully tested or in WIP status.
 
 ## Features
 
@@ -75,7 +75,7 @@ assert!(data[[0, 2, 2]] == 9);
 
 ### Benchmark
 
-The performance of nested vectors heavily depends on usage patterns and allocator behaviour. If you can allocate all your vectors at once and/or your vector is really small, then nested vectors could be more efficient. Otherwise, jagged arrays are more efficient. 
+The performance of nested vectors heavily depends on usage patterns and allocator behaviour. If you can allocate all your vectors at once and/or your vector is really small, then nested vectors could be more efficient, especially at higher dimension. Otherwise, jagged arrays are more efficient.
 
 ```txt
 sample-size/2d nested vector iteration 1000

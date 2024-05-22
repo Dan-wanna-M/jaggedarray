@@ -424,8 +424,9 @@ macro_rules! impl_view {
                         self.buffer.get_unchecked(..),
                     )
                 } else {
-                    let start_index = (*index_buffer.get_unchecked(*index.get_unchecked(M-1))).as_();
-                    let end_index = (*index_buffer.get_unchecked(*index.get_unchecked(M-1)+1)).as_();
+                    let last = *index.get_unchecked(M-1);
+                    let start_index = (*index_buffer.get_unchecked(last)).as_();
+                    let end_index = (*index_buffer.get_unchecked(last+1)).as_();
                     // SAFETY: zero-sized arrays don't need initialization
                     (
                         unsafe { GenericArray::assume_init(result) },
@@ -436,15 +437,16 @@ macro_rules! impl_view {
             }
             unsafe fn get_unchecked(&self, index: [usize; N]) -> &TVal {
                 if N > 1 {
-                    let mut buffer = self.indices.get_unchecked(0).get_unchecked(..);
+                    let mut buffer_ptr = self.indices.get_unchecked(0).get_unchecked(..).as_ptr();
                     for i in 1..N-1 {
-                        buffer = self.indices.get_unchecked(i)
-                        .get_unchecked((*buffer.get_unchecked(*index.get_unchecked(i-1))).as_()
-                        ..(*buffer.get_unchecked(*index.get_unchecked(i-1))).as_() + 1);
+                        let idx = self.indices.get_unchecked(i);
+                        let id = (*index.get_unchecked(i-1));
+                        let s = *buffer_ptr.add(id);
+                        buffer_ptr = idx.as_ptr().add(s.as_());
                     }
-                    let start_index = (*buffer.get_unchecked(*index.get_unchecked(N - 2))).as_();
-                    let end_index = (*buffer.get_unchecked(*index.get_unchecked(N - 2))+TNum::ONE).as_();
-                    self.buffer.get_unchecked(start_index..end_index).get_unchecked(*index.get_unchecked(index.len() - 1))
+                    let last = *index.get_unchecked(N - 2);
+                    let start_index = (*buffer_ptr.add(last)).as_();
+                    self.buffer.get_unchecked(start_index+*index.get_unchecked(N - 1))
                 } else {
                     self.buffer.get_unchecked(*index.get_unchecked(0))
                 }
@@ -471,8 +473,9 @@ macro_rules! impl_view {
                     for (&i, idx) in zip(index.iter(), self.indices[1..].iter()) {
                         buffer = &idx[buffer[i].as_()..buffer[i + 1].as_() + 1]
                     }
-                    let start_index = buffer[index[index.len() - 2]].as_();
-                    let end_index = buffer[index[index.len() - 2] + 1].as_();
+                    let last = index[index.len() - 2];
+                    let start_index = buffer[last].as_();
+                    let end_index = buffer[last + 1].as_();
                     &self.buffer[start_index..end_index][index[index.len() - 1]]
                 } else {
                     &self.buffer[index[0]]

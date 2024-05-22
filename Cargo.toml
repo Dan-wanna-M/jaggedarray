@@ -1,6 +1,7 @@
+# cargo-features = ["profile-rustflags"]
 [package]
 name = "jaggedarray"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Multidimensional jagged array"
 license = "MIT"
@@ -11,10 +12,16 @@ categories = ["data-structures"]
 typenum = "1.17.0"
 generic-array = "1.0.0"
 num = "0.4.3"
-[profile.release]
+[profile.bench]
+opt-level = 3
 lto = true
 strip = "symbols"
-panic = "abort"
+# rustflags = ["-C", "target-cpu=native"]
+[profile.release]
+opt-level = 3
+lto = true
+debug = true
+# rustflags = ["-C", "target-cpu=native"]
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }
 [[bench]]

@@ -1,7 +1,39 @@
 pub mod jagged_array;
+use crate::jagged_array::JaggedArrayViewTrait;
+pub fn nested_3d_jagged_array_iteration(
+    data: &jagged_array::JaggedArray<usize, usize, 3>,
+) -> usize {
+    let mut result = 0;
+    unsafe {
+        let dims = data.len();
+        for i in 0..dims {
+            let view = data.view_unchecked::<1, 2>([i]);
+            for j in 0..view.len() {
+                let view = view.view_unchecked::<1, 1>([j]);
+                for k in 0..view.len() {
+                    result += view.get_unchecked([k]);
+                }
+            }
+        }
+    }
+    result
+}
+
+pub fn nested_3d_vector_iteration(data: &Vec<Vec<Vec<usize>>>) -> usize {
+    let mut result = 0;
+    for i in data {
+        for j in i {
+            for k in j {
+                result += k;
+            }
+        }
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::{jagged_array::JaggedArrayViewTrait};
+    use crate::jagged_array::JaggedArrayViewTrait;
 
     use super::*;
     #[test]
@@ -76,6 +108,9 @@ mod tests {
         data.push_to_last_row(1);
         assert!(data[[0, 0, 0]] == 1);
         assert!(data.view::<1, 2>([0]).view::<1, 1>([0])[[0]] == 1);
+        unsafe {
+            assert!(*data.get_unchecked([0,0,0]) == 1);
+        }
         data.new_row::<1>();
         data.push_to_last_row(4);
         data.push_to_last_row(5);
@@ -88,6 +123,7 @@ mod tests {
         assert!(data[[0, 2, 0]] == 7);
         assert!(data[[0, 2, 1]] == 8);
         assert!(data[[0, 2, 2]] == 9);
+        
         data.new_row::<0>();
         data.new_row::<1>();
         data.push_to_last_row(10);
@@ -98,12 +134,18 @@ mod tests {
         assert!(data[[1, 0, 1]] == 11);
         assert!(data[[1, 0, 2]] == 12);
         assert!(data[[1, 0, 3]] == 13);
+        unsafe {
+            assert!(*data.get_unchecked([1,0,3]) == 13);
+        }
         data.new_row::<0>();
         data.new_row::<0>();
         data.new_row::<1>();
         data.push_to_last_row(100);
         // assert!(data[[2, 0, 0]] == 100);
         assert!(data[[3, 0, 0]] == 100);
+        unsafe {
+            assert!(*data.get_unchecked([3,0,0]) == 100);
+        }
         data.append(data.clone());
         assert!(data[[7, 0, 0]] == 100);
         data.remove_last_row::<0>();

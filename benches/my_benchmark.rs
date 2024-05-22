@@ -118,6 +118,22 @@ fn criterion_benchmark(c: &mut Criterion) {
     // Configure Criterion.rs to detect smaller differences and increase sample size to improve
     // precision and counteract the resulting noise.
     group.sample_size(300).measurement_time(Duration::from_secs(8));
+    let a = get_2d_nested_vector(10);
+    group.bench_function("2d nested vector iteration 10", |b| {
+        b.iter(|| nested_2d_vector_iteration(black_box(&a)))
+    });
+    let a = get_2d_jagged_array::<usize>(10);
+    group.bench_function("2d jagged array iteration 10", |b| {
+        b.iter(|| nested_2d_jagged_array_iteration(black_box(&a)))
+    });
+    let a = get_2d_nested_vector(100);
+    group.bench_function("2d nested vector iteration 100", |b| {
+        b.iter(|| nested_2d_vector_iteration(black_box(&a)))
+    });
+    let a = get_2d_jagged_array::<usize>(100);
+    group.bench_function("2d jagged array iteration 100", |b| {
+        b.iter(|| nested_2d_jagged_array_iteration(black_box(&a)))
+    });
     let a = get_2d_nested_vector(1000);
     group.bench_function("2d nested vector iteration 1000", |b| {
         b.iter(|| nested_2d_vector_iteration(black_box(&a)))
