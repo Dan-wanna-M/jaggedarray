@@ -4,6 +4,7 @@ pub mod vec_like;
 #[cfg(test)]
 mod tests {
     use crate::jagged_array::JaggedArrayViewTrait;
+    use crate::jagged_array::JaggedArray1DViewTrait;
     use super::*;
     #[test]
     fn push_1d_test() {
@@ -35,6 +36,8 @@ mod tests {
         unsafe {
             assert!(*data.get_unchecked([0,0]) == 1);
         }
+        let a = data.view::<1, 1>([0]).as_slice();
+        assert!(a[0] == 1);
         data.new_row::<0>();
         data.extend_last_row([4, 5, 6].into_iter());
         assert!(data[[1, 0]] == 4);

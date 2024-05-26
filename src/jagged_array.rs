@@ -591,7 +591,7 @@ macro_rules! impl_view_mut {
         }
     };
 }
-macro_rules! impl_view1d {
+macro_rules! impl_view1d_owned {
     ($num:ty, $typ:ident< $( $gen:tt ),+>,$type1:ty,$type2:path) => {
         impl<$( $gen ),+> JaggedArray1DViewTrait<TVal, $num> for $typ<$($gen),+,1> where $num: AsPrimitive<usize> + Num,$type1:$type2
         {
@@ -601,7 +601,7 @@ macro_rules! impl_view1d {
         }
     };
 }
-macro_rules! impl_view_mut1d {
+macro_rules! impl_view_mut1d_owned {
     ($num:ty, $typ:ident< $( $gen:tt ),+>,$type1:ty,$type2:path) => {
         impl<$( $gen ),+> JaggedArray1DMutViewTrait<TVal, $num> for $typ<$($gen),+,1> where $num: AsPrimitive<usize> + Num,$type1:$type2
         {
@@ -611,17 +611,25 @@ macro_rules! impl_view_mut1d {
         }
     };
 }
+
+impl<'a, TVal, TNum> JaggedArrayView<'a, TVal, TNum, 1>
+where
+    TNum:
+        AsPrimitive<usize> + Num + NumAssignOps + std::cmp::PartialOrd + ConstOne + ConstZero,
+    usize: num::traits::AsPrimitive<TNum>,
+{
+    pub fn as_slice(&self) -> &'a [TVal] {
+        self.buffer
+    }
+}
+
 impl_view!(<TBuffer as VecLike>::TI,JaggedArray<TVal, TBuffer>,TBuffer,VecLike);
 impl_view!(TNum, JaggedArrayView<'a, TVal, TNum>, TNum, Num);
 impl_view!(TNum, JaggedArrayMutView<'a, TVal, TNum>, TNum, Num);
 impl_view!(TNum,JaggedArrayOwnedView<TVal, TNum>,TNum,Num);
-impl_view1d!(<TBuffer as VecLike>::TI,JaggedArray<TVal, TBuffer>,TBuffer,VecLike);
-impl_view1d!(TNum, JaggedArrayView<'a, TVal, TNum>, TNum, Num);
-impl_view1d!(TNum, JaggedArrayMutView<'a, TVal, TNum>, TNum, Num);
-impl_view1d!(TNum,JaggedArrayOwnedView<TVal, TNum>,TNum,Num);
+impl_view1d_owned!(<TBuffer as VecLike>::TI,JaggedArray<TVal, TBuffer>,TBuffer,VecLike);
+impl_view1d_owned!(TNum,JaggedArrayOwnedView<TVal, TNum>,TNum,Num);
 impl_view_mut!(<TBuffer as VecLike>::TI,JaggedArray<TVal, TBuffer>,TBuffer,VecLike);
 impl_view_mut!(TNum, JaggedArrayMutView<'a, TVal, TNum>, TNum, Num);
 impl_view_mut!(TNum,JaggedArrayOwnedView<TVal, TNum>,TNum,Num);
-impl_view_mut1d!(<TBuffer as VecLike>::TI,JaggedArray<TVal, TBuffer>,TBuffer,VecLike);
-impl_view_mut1d!(TNum, JaggedArrayMutView<'a, TVal, TNum>, TNum, Num);
-impl_view_mut1d!(TNum,JaggedArrayOwnedView<TVal, TNum>,TNum,Num);
+impl_view_mut1d_owned!(TNum,JaggedArrayOwnedView<TVal, TNum>,TNum,Num);
