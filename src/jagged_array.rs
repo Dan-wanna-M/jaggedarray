@@ -230,7 +230,6 @@ where
         }
     }
 }
-
 pub trait JaggedArrayViewTrait<TVal, TNum, const N: usize>: Index<[usize; N]>
 where
     TNum: AsPrimitive<usize> + Num,
@@ -315,6 +314,19 @@ where
         Const<N>: ToUInt,
         Const<M>: ToUInt,
         Const<R>: ToUInt;
+}
+
+pub trait JaggedArray1DViewTrait<TVal, TNum>
+where
+    TNum: AsPrimitive<usize> + Num,
+{
+    fn as_slice(&self) -> &[TVal];
+}
+pub trait JaggedArray1DMutViewTrait<TVal, TNum>
+where
+    TNum: AsPrimitive<usize> + Num,
+{
+    fn as_slice_mut(&mut self) -> &mut [TVal];
 }
 macro_rules! impl_view {
     ( $typ:ident < $( $gen:tt ),+ > ) => {
@@ -569,10 +581,43 @@ macro_rules! impl_view_mut {
         }
     };
 }
+macro_rules! impl_view1d {
+    ( $typ:ident < $( $gen:tt ),+ > ) => {
+        impl<$( $gen ),+> JaggedArray1DViewTrait<TVal, TNum> for $typ<$($gen),+,1> where TNum: AsPrimitive<usize> + Num,
+        {
+            fn as_slice(&self) -> &[TVal] {
+                &self.buffer
+            }
+        }
+    };
+    () => {
+
+    };
+}
+macro_rules! impl_view_mut1d {
+    ( $typ:ident < $( $gen:tt ),+ > ) => {
+        impl<$( $gen ),+> JaggedArray1DMutViewTrait<TVal, TNum> for $typ<$($gen),+,1> where TNum: AsPrimitive<usize> + Num
+        {
+            fn as_slice_mut(&mut self) -> &mut [TVal] {
+                &mut self.buffer
+            }
+        }
+    };
+    () => {
+
+    };
+}
 impl_view!(JaggedArray<TVal, TNum>);
 impl_view!(JaggedArrayView<'a, TVal, TNum>);
 impl_view!(JaggedArrayMutView<'a, TVal, TNum>);
 impl_view!(JaggedArrayOwnedView<TVal, TNum>);
+impl_view1d!(JaggedArray<TVal, TNum>);
+impl_view1d!(JaggedArrayView<'a, TVal, TNum>);
+impl_view1d!(JaggedArrayMutView<'a, TVal, TNum>);
+impl_view1d!(JaggedArrayOwnedView<TVal, TNum>);
 impl_view_mut!(JaggedArray<TVal, TNum>);
 impl_view_mut!(JaggedArrayMutView<'a, TVal, TNum>);
 impl_view_mut!(JaggedArrayOwnedView<TVal, TNum>);
+impl_view_mut1d!(JaggedArray<TVal, TNum>);
+impl_view_mut1d!(JaggedArrayMutView<'a, TVal, TNum>);
+impl_view_mut1d!(JaggedArrayOwnedView<TVal, TNum>);
