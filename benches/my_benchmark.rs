@@ -50,7 +50,7 @@ fn get_3d_nested_vector(iteration: usize) -> Vec<Vec<Vec<usize>>> {
 }
 
 fn nested_2d_jagged_array_iteration<T: AsPrimitive<usize> + Num+ConstOne+ConstZero>(
-    data: &JaggedArray<usize, T, 2>,
+    data: &JaggedArray<usize, Vec<T>, 2>,
 ) -> usize {
     let mut result = 0;
     unsafe {
@@ -66,7 +66,7 @@ fn nested_2d_jagged_array_iteration<T: AsPrimitive<usize> + Num+ConstOne+ConstZe
 }
 
 fn nested_3d_jagged_array_iteration<T: AsPrimitive<usize> + Num+ConstOne+ConstZero>(
-    data: &JaggedArray<usize, T, 3>,
+    data: &JaggedArray<usize, Vec<T>, 3>,
 ) -> usize {
     let mut result = 0;
     unsafe {
@@ -86,8 +86,8 @@ fn nested_3d_jagged_array_iteration<T: AsPrimitive<usize> + Num+ConstOne+ConstZe
 
 fn get_2d_jagged_array<T: AsPrimitive<usize> + Num + NumAssignOps + std::cmp::PartialOrd+ConstOne+ConstZero>(
     iteration: usize,
-) -> JaggedArray<usize, T, 2> where usize: AsPrimitive<T> {
-    let mut a = JaggedArray::<usize, T, 2>::new();
+) -> JaggedArray<usize, Vec<T>, 2> where usize: AsPrimitive<T> {
+    let mut a = JaggedArray::<usize, Vec<T>, 2>::new();
     for i in 0..iteration {
         a.new_row::<0>();
         for j in 0..i + 1 {
@@ -99,8 +99,8 @@ fn get_2d_jagged_array<T: AsPrimitive<usize> + Num + NumAssignOps + std::cmp::Pa
 
 fn get_3d_jagged_array<T: AsPrimitive<usize> + Num + NumAssignOps + std::cmp::PartialOrd+ConstOne+ConstZero>(
     iteration: usize,
-) -> JaggedArray<usize, T, 3> where usize: AsPrimitive<T> {
-    let mut a = JaggedArray::<usize, T, 3>::new();
+) -> JaggedArray<usize, Vec<T>, 3> where usize: AsPrimitive<T> {
+    let mut a = JaggedArray::<usize, Vec<T>, 3>::new();
     for i in 0..iteration {
         a.new_row::<0>();
         for j in 0..i + 1 {

@@ -1,44 +1,13 @@
 pub mod jagged_array;
-use crate::jagged_array::JaggedArrayViewTrait;
-pub fn nested_3d_jagged_array_iteration(
-    data: &jagged_array::JaggedArray<usize, usize, 3>,
-) -> usize {
-    let mut result = 0;
-    unsafe {
-        let dims = data.len();
-        for i in 0..dims {
-            let view = data.view_unchecked::<1, 2>([i]);
-            for j in 0..view.len() {
-                let view = view.view_unchecked::<1, 1>([j]);
-                for k in 0..view.len() {
-                    result += view.get_unchecked([k]);
-                }
-            }
-        }
-    }
-    result
-}
-
-pub fn nested_3d_vector_iteration(data: &Vec<Vec<Vec<usize>>>) -> usize {
-    let mut result = 0;
-    for i in data {
-        for j in i {
-            for k in j {
-                result += k;
-            }
-        }
-    }
-    result
-}
+pub mod vec_like;
 
 #[cfg(test)]
 mod tests {
     use crate::jagged_array::JaggedArrayViewTrait;
-
     use super::*;
     #[test]
     fn push_1d_test() {
-        let mut data = jagged_array::JaggedArray::<i32, u16, 1>::new();
+        let mut data = jagged_array::JaggedArray::<i32, Vec<u16>, 1>::new();
         // data.new_row::<0>();
         // data.view();
         data.push_to_last_row(1);
@@ -55,7 +24,7 @@ mod tests {
 
     #[test]
     fn push_2d_test() {
-        let mut data = jagged_array::JaggedArray::<i32, u16, 2>::new();
+        let mut data = jagged_array::JaggedArray::<i32, Vec<u16>, 2>::new();
         data.new_row::<0>();
         data.push_to_last_row(1);
         assert!(data[[0, 0]] == 1);
@@ -102,7 +71,7 @@ mod tests {
 
     #[test]
     fn push_3d_test() {
-        let mut data = jagged_array::JaggedArray::<i32, u16, 3>::new();
+        let mut data = jagged_array::JaggedArray::<i32, Vec<u16>, 3>::new();
         data.new_row::<0>();
         data.new_row::<1>();
         data.push_to_last_row(1);
@@ -158,7 +127,7 @@ mod tests {
     }
     #[test]
     fn push_4d_test() {
-        let mut data = jagged_array::JaggedArray::<i32, u16, 4>::new();
+        let mut data = jagged_array::JaggedArray::<i32, Vec<u16>, 4>::new();
         data.new_row::<0>();
         data.new_row::<1>();
         data.new_row::<2>();

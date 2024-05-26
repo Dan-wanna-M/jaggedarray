@@ -240,11 +240,12 @@ checksum = "49f1f14873335454500d59611f1cf4a4b0f786f9ac11f4312a78e4cf2566695b"
 
 [[package]]
 name = "jaggedarray"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "generic-array",
  "num",
+ "tinyvec",
  "typenum",
 ]
 
@@ -539,6 +540,12 @@ dependencies = [
  "serde",
  "serde_json",
 ]
+
+[[package]]
+name = "tinyvec"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87cc5ceb3875bb20c2890005a4e226a4651264a5c75edb2421b52861a0a0cb50"
 
 [[package]]
 name = "typenum"

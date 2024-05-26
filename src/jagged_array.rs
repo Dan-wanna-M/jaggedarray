@@ -6,19 +6,20 @@ use num::traits::Num;
 use num::traits::NumAssignOps;
 use std::{
     iter::zip,
-    ops::{Index, IndexMut},
-    vec,
+    ops::{Index, IndexMut}
 };
 use typenum::{Const, IsEqual, NonZero, Sub1, ToUInt, Unsigned, B1, U, U2};
+
+use crate::vec_like::VecLike;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct JaggedArray<TVal, TNum, const N: usize>
+pub struct JaggedArray<TVal, TBuffer: VecLike, const N: usize>
 where
-    TNum: AsPrimitive<usize> + Num,
+    <TBuffer as VecLike>::TI: AsPrimitive<usize> + Num,
     U<N>: std::ops::Sub<B1>,
     <U<N> as std::ops::Sub<B1>>::Output: ArrayLength,
     Const<N>: ToUInt,
 {
-    indices: GenericArray<Vec<TNum>, Sub1<U<N>>>,
+    indices: GenericArray<TBuffer, Sub1<U<N>>>,
     buffer: Vec<TVal>,
 }
 
@@ -58,9 +59,9 @@ where
     buffer: Box<[TVal]>,
 }
 
-impl<TVal, TNum, const N: usize> Default for JaggedArray<TVal, TNum, N>
+impl<TVal, TBuffer: VecLike, const N: usize> Default for JaggedArray<TVal, TBuffer, N>
 where
-    TNum: AsPrimitive<usize> + Num + ConstOne + ConstZero,
+    <TBuffer as VecLike>::TI: AsPrimitive<usize> + Num + ConstOne + ConstZero,
     U<N>: std::ops::Sub<B1>,
     <U<N> as std::ops::Sub<B1>>::Output: ArrayLength,
     Const<N>: ToUInt,
@@ -68,19 +69,24 @@ where
     #[inline]
     fn default() -> Self {
         Self {
-            indices: GenericArray::generate(|_| vec![TNum::ZERO]),
+            indices: GenericArray::generate(|_| {
+                let mut a = TBuffer::default();
+                a.push(TBuffer::TI::ZERO);
+                a
+            }),
             buffer: Default::default(),
         }
     }
 }
 // Methods that are unique to JaggedArray
-impl<TVal, TNum, const N: usize> JaggedArray<TVal, TNum, N>
+impl<TVal, TBuffer: VecLike, const N: usize> JaggedArray<TVal, TBuffer, N>
 where
-    TNum: AsPrimitive<usize> + Num + NumAssignOps + std::cmp::PartialOrd + ConstOne + ConstZero,
+    <TBuffer as VecLike>::TI:
+        AsPrimitive<usize> + Num + NumAssignOps + std::cmp::PartialOrd + ConstOne + ConstZero,
     U<N>: std::ops::Sub<B1>,
     <U<N> as std::ops::Sub<B1>>::Output: ArrayLength,
     Const<N>: ToUInt,
-    usize: num::traits::AsPrimitive<TNum>,
+    usize: num::traits::AsPrimitive<<TBuffer as VecLike>::TI>,
 {
     #[inline]
     pub fn new() -> Self {
@@ -90,7 +96,8 @@ where
     pub fn with_capacity(capacity: [usize; N]) -> Self {
         Self {
             indices: GenericArray::generate(|i| {
-                let mut temp = vec![TNum::ZERO];
+                let mut temp = TBuffer::default();
+                temp.push(TBuffer::TI::ZERO);
                 temp.reserve(capacity[i]);
                 temp
             }),
@@ -110,7 +117,7 @@ where
         self.buffer.clear();
         for index in self.indices.iter_mut() {
             index.clear();
-            index.push(TNum::ZERO);
+            index.push(TBuffer::TI::ZERO);
         }
     }
     #[inline]
@@ -128,22 +135,22 @@ where
         let new_val = *buffer.last().unwrap();
         buffer.push(new_val);
         if m > 0 {
-            *self.indices[m - 1].last_mut().unwrap() += TNum::ONE;
+            *self.indices[m - 1].last_mut().unwrap() += TBuffer::TI::ONE;
         }
     }
     #[inline]
     pub fn push_to_last_row(&mut self, val: TVal) {
         self.buffer.push(val);
         if let Some(value) = self.indices.last_mut() {
-            *value.last_mut().unwrap() += TNum::ONE;
+            *value.last_mut().unwrap() += TBuffer::TI::ONE;
         }
     }
     #[inline]
     pub fn pop_from_last_row(&mut self) -> Option<TVal> {
         let mut iter = self.indices.last_mut().unwrap().iter_mut().rev();
         let last = iter.next().unwrap();
-        if *last != TNum::ZERO && iter.next().unwrap() < last {
-            *last -= TNum::ONE;
+        if *last != TBuffer::TI::ZERO && iter.next().unwrap() < last {
+            *last -= TBuffer::TI::ONE;
             self.buffer.pop()
         } else {
             None
@@ -167,8 +174,10 @@ where
             (self.buffer.len() - initial).as_();
     }
 
-    pub fn append_from_view<const M: usize>(&mut self, other: &JaggedArrayView<TVal, TNum, M>)
-    where
+    pub fn append_from_view<const M: usize>(
+        &mut self,
+        other: &JaggedArrayView<TVal, TBuffer::TI, M>,
+    ) where
         U<N>: std::ops::Sub<U<M>>,
         <U<N> as std::ops::Sub<U<M>>>::Output: Unsigned,
         U<M>: std::ops::Sub<B1>,
@@ -186,7 +195,7 @@ where
         self.buffer.extend_from_slice(other.buffer);
     }
 
-    pub fn append<const M: usize>(&mut self, other: JaggedArray<TVal, TNum, M>)
+    pub fn append<const M: usize>(&mut self, other: JaggedArray<TVal, TBuffer, M>)
     where
         U<N>: std::ops::Sub<U<M>>,
         <U<N> as std::ops::Sub<U<M>>>::Output: Unsigned,
@@ -216,7 +225,7 @@ where
     {
         let mut iter = self.indices[DIM].iter().rev();
         let last = *iter.next().unwrap();
-        if last != TNum::ZERO {
+        if last != TBuffer::TI::ZERO {
             let mut last = *iter.next().unwrap();
             for index in self.indices.iter_mut().skip(DIM + 1) {
                 index.truncate(usize::max(1, last.as_()));
@@ -329,11 +338,11 @@ where
     fn as_slice_mut(&mut self) -> &mut [TVal];
 }
 macro_rules! impl_view {
-    ( $typ:ident < $( $gen:tt ),+ > ) => {
-        impl<$( $gen ),+,const N:usize> JaggedArrayViewTrait<TVal, TNum, N>
+    ($num:ty, $typ:ident< $( $gen:tt ),+>,$type1:ty,$type2:path) => {
+        impl<$( $gen ),+,const N:usize> JaggedArrayViewTrait<TVal, $num, N>
             for $typ<$($gen),+, N>
-        where
-        TNum: AsPrimitive<usize>+Num+ConstOne+ConstZero,
+        where $type1:$type2,
+        $num: AsPrimitive<usize>+Num+ConstOne+ConstZero,
         U<N>: std::ops::Sub<B1>,
         U<N>:ArrayLength,
         <U<N> as std::ops::Sub<B1>>::Output: ArrayLength,
@@ -355,7 +364,7 @@ macro_rules! impl_view {
             fn view<const M: usize, const R: usize>(
                 &self,
                 index: [usize; M],
-            ) -> JaggedArrayView<TVal, TNum, R>
+            ) -> JaggedArrayView<TVal, $num, R>
             where
             U<N>: std::ops::Sub<U2> + std::ops::Sub<typenum::B1>,
             <U<N> as std::ops::Sub<U2>>::Output: ArrayLength,
@@ -377,7 +386,7 @@ macro_rules! impl_view {
                 for (&i, idx) in zip(index.iter(), self_indices.iter()) {
                     index_buffer = &idx[index_buffer[i].as_()..index_buffer[i + 1].as_() + 1]
                 }
-                let mut result = GenericArray::<&[TNum], Sub1<U<R>>>::uninit();
+                let mut result = GenericArray::<&[$num], Sub1<U<R>>>::uninit();
                 let (indices, buffer) = if R > 1 {
                     result[0].write(index_buffer);
                     for (src,dst) in remaining.iter().zip(result.iter_mut().skip(1)) {
@@ -403,7 +412,7 @@ macro_rules! impl_view {
             unsafe fn view_unchecked<const M: usize, const R: usize>(
                 &self,
                 index: [usize; M],
-            ) -> JaggedArrayView<TVal, TNum, R>
+            ) -> JaggedArrayView<TVal, $num, R>
             where
             U<N>: std::ops::Sub<U2> + std::ops::Sub<typenum::B1>,
             <U<N> as std::ops::Sub<U2>>::Output: ArrayLength,
@@ -422,9 +431,9 @@ macro_rules! impl_view {
                 let mut index_buffer = self.indices.get_unchecked(0).get_unchecked(..);
                 for i in 1..M {
                     index_buffer = self.indices.get_unchecked(i).get_unchecked((*index_buffer.get_unchecked(*index.get_unchecked(i-1))).as_()
-                    ..(*index_buffer.get_unchecked(*index.get_unchecked(i-1)+1)+TNum::ONE).as_());
+                    ..(*index_buffer.get_unchecked(*index.get_unchecked(i-1)+1)+<$num>::ONE).as_());
                 }
-                let mut result = GenericArray::<&[TNum], Sub1<U<R>>>::uninit();
+                let mut result = GenericArray::<&[$num], Sub1<U<R>>>::uninit();
                 let (indices, buffer) = if R > 1 {
                     result.get_unchecked_mut(0).write(index_buffer);
                     for i in 1..R {
@@ -464,7 +473,7 @@ macro_rules! impl_view {
                 }
             }
 
-            fn to_owned(self) -> JaggedArrayOwnedView<TVal, TNum, N> where TVal:Clone {
+            fn to_owned(self) -> JaggedArrayOwnedView<TVal, $num, N> where TVal:Clone {
                 let indices = self.indices.iter().map(|idx| idx.to_vec().into_boxed_slice()).collect();
                 let buffer = self.buffer.to_vec().into_boxed_slice();
                 JaggedArrayOwnedView { indices, buffer }
@@ -473,7 +482,8 @@ macro_rules! impl_view {
 
         impl<$( $gen ),+,const N:usize> Index<[usize; N]> for $typ<$($gen),+, N>
         where
-        TNum: AsPrimitive<usize>+Num,
+        $num: AsPrimitive<usize>+Num,
+        $type1:$type2,
             U<N>: std::ops::Sub<B1>,
             <U<N> as std::ops::Sub<B1>>::Output: ArrayLength,
             Const<N>: ToUInt,
@@ -498,11 +508,11 @@ macro_rules! impl_view {
 }
 
 macro_rules! impl_view_mut {
-    ( $typ:ident < $( $gen:tt ),+ > ) => {
-        impl<$( $gen ),+,const N:usize> JaggedArrayMutViewTrait<TVal, TNum, N>
+    ($num:ty, $typ:ident< $( $gen:tt ),+>,$type1:ty,$type2:path) => {
+        impl<$( $gen ),+,const N:usize> JaggedArrayMutViewTrait<TVal, $num, N>
             for $typ<$($gen),+, N>
-        where
-        TNum: AsPrimitive<usize>+Num+ConstOne+ConstZero,
+        where $type1:$type2,
+        $num: AsPrimitive<usize>+Num+ConstOne+ConstZero,
         U<N>: std::ops::Sub<B1>,
         U<N>:ArrayLength,
         <U<N> as std::ops::Sub<B1>>::Output: ArrayLength,
@@ -512,7 +522,7 @@ macro_rules! impl_view_mut {
             fn view_mut<const M: usize, const R: usize>(
                 &mut self,
                 index: [usize; M],
-            ) -> JaggedArrayMutView<TVal, TNum, R>
+            ) -> JaggedArrayMutView<TVal, $num, R>
             where
             U<N>: std::ops::Sub<U2> + std::ops::Sub<typenum::B1>,
             <U<N> as std::ops::Sub<U2>>::Output: ArrayLength,
@@ -534,7 +544,7 @@ macro_rules! impl_view_mut {
                 for (&i, idx) in zip(index.iter(), self_indices.iter_mut()) {
                     index_buffer = &mut idx[index_buffer[i].as_()..index_buffer[i + 1].as_() + 1]
                 }
-                let mut result = GenericArray::<&mut [TNum], Sub1<U<R>>>::uninit();
+                let mut result = GenericArray::<&mut [$num], Sub1<U<R>>>::uninit();
                 let (indices, buffer) = if R > 1 {
                     result[0].write(index_buffer);
                     for (src,dst) in remaining.iter_mut().zip(result.iter_mut().skip(1)) {
@@ -559,8 +569,8 @@ macro_rules! impl_view_mut {
         }
 
         impl<$( $gen ),+,const N:usize> IndexMut<[usize; N]> for $typ<$($gen),+, N>
-        where
-        TNum: AsPrimitive<usize>+Num,
+        where $type1:$type2,
+        $num: AsPrimitive<usize>+Num,
             U<N>: std::ops::Sub<B1> + ArrayLength,
             <U<N> as std::ops::Sub<B1>>::Output: ArrayLength,
             Const<N>: ToUInt,
@@ -582,42 +592,36 @@ macro_rules! impl_view_mut {
     };
 }
 macro_rules! impl_view1d {
-    ( $typ:ident < $( $gen:tt ),+ > ) => {
-        impl<$( $gen ),+> JaggedArray1DViewTrait<TVal, TNum> for $typ<$($gen),+,1> where TNum: AsPrimitive<usize> + Num,
+    ($num:ty, $typ:ident< $( $gen:tt ),+>,$type1:ty,$type2:path) => {
+        impl<$( $gen ),+> JaggedArray1DViewTrait<TVal, $num> for $typ<$($gen),+,1> where $num: AsPrimitive<usize> + Num,$type1:$type2
         {
             fn as_slice(&self) -> &[TVal] {
                 &self.buffer
             }
         }
     };
-    () => {
-
-    };
 }
 macro_rules! impl_view_mut1d {
-    ( $typ:ident < $( $gen:tt ),+ > ) => {
-        impl<$( $gen ),+> JaggedArray1DMutViewTrait<TVal, TNum> for $typ<$($gen),+,1> where TNum: AsPrimitive<usize> + Num
+    ($num:ty, $typ:ident< $( $gen:tt ),+>,$type1:ty,$type2:path) => {
+        impl<$( $gen ),+> JaggedArray1DMutViewTrait<TVal, $num> for $typ<$($gen),+,1> where $num: AsPrimitive<usize> + Num,$type1:$type2
         {
             fn as_slice_mut(&mut self) -> &mut [TVal] {
                 &mut self.buffer
             }
         }
     };
-    () => {
-
-    };
 }
-impl_view!(JaggedArray<TVal, TNum>);
-impl_view!(JaggedArrayView<'a, TVal, TNum>);
-impl_view!(JaggedArrayMutView<'a, TVal, TNum>);
-impl_view!(JaggedArrayOwnedView<TVal, TNum>);
-impl_view1d!(JaggedArray<TVal, TNum>);
-impl_view1d!(JaggedArrayView<'a, TVal, TNum>);
-impl_view1d!(JaggedArrayMutView<'a, TVal, TNum>);
-impl_view1d!(JaggedArrayOwnedView<TVal, TNum>);
-impl_view_mut!(JaggedArray<TVal, TNum>);
-impl_view_mut!(JaggedArrayMutView<'a, TVal, TNum>);
-impl_view_mut!(JaggedArrayOwnedView<TVal, TNum>);
-impl_view_mut1d!(JaggedArray<TVal, TNum>);
-impl_view_mut1d!(JaggedArrayMutView<'a, TVal, TNum>);
-impl_view_mut1d!(JaggedArrayOwnedView<TVal, TNum>);
+impl_view!(<TBuffer as VecLike>::TI,JaggedArray<TVal, TBuffer>,TBuffer,VecLike);
+impl_view!(TNum, JaggedArrayView<'a, TVal, TNum>, TNum, Num);
+impl_view!(TNum, JaggedArrayMutView<'a, TVal, TNum>, TNum, Num);
+impl_view!(TNum,JaggedArrayOwnedView<TVal, TNum>,TNum,Num);
+impl_view1d!(<TBuffer as VecLike>::TI,JaggedArray<TVal, TBuffer>,TBuffer,VecLike);
+impl_view1d!(TNum, JaggedArrayView<'a, TVal, TNum>, TNum, Num);
+impl_view1d!(TNum, JaggedArrayMutView<'a, TVal, TNum>, TNum, Num);
+impl_view1d!(TNum,JaggedArrayOwnedView<TVal, TNum>,TNum,Num);
+impl_view_mut!(<TBuffer as VecLike>::TI,JaggedArray<TVal, TBuffer>,TBuffer,VecLike);
+impl_view_mut!(TNum, JaggedArrayMutView<'a, TVal, TNum>, TNum, Num);
+impl_view_mut!(TNum,JaggedArrayOwnedView<TVal, TNum>,TNum,Num);
+impl_view_mut1d!(<TBuffer as VecLike>::TI,JaggedArray<TVal, TBuffer>,TBuffer,VecLike);
+impl_view_mut1d!(TNum, JaggedArrayMutView<'a, TVal, TNum>, TNum, Num);
+impl_view_mut1d!(TNum,JaggedArrayOwnedView<TVal, TNum>,TNum,Num);
