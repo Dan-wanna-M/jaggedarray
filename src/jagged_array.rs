@@ -4,9 +4,10 @@ use num::traits::ConstOne;
 use num::traits::ConstZero;
 use num::traits::Num;
 use num::traits::NumAssignOps;
+use std::f32::consts::E;
 use std::{
     iter::zip,
-    ops::{Index, IndexMut}
+    ops::{Index, IndexMut},
 };
 use typenum::{Const, IsEqual, NonZero, Sub1, ToUInt, Unsigned, B1, U, U2};
 
@@ -214,7 +215,7 @@ where
     }
 
     // It may be possible to implement a drain-like variant of this method
-    pub fn remove_last_row<const DIM: usize>(&mut self) -> Option<()>
+    pub fn remove_last_row<const DIM: usize>(&mut self) -> bool
     where
         U<N>: std::ops::Sub<U<DIM>>,
         Sub1<<U<N> as std::ops::Sub<U<DIM>>>::Output>: Unsigned + NonZero,
@@ -223,19 +224,30 @@ where
         Const<N>: ToUInt,
         Const<DIM>: ToUInt,
     {
-        let mut iter = self.indices[DIM].iter().rev();
-        let last = *iter.next().unwrap();
-        if last != TBuffer::TI::ZERO {
-            let mut last = *iter.next().unwrap();
-            for index in self.indices.iter_mut().skip(DIM + 1) {
-                index.truncate(usize::max(1, last.as_()));
-                last = *index.last().unwrap();
+        let m = DIM;
+        if self.indices[m].len() > 1 {
+            self.indices[m].pop();
+            if m > 0 {
+                *self.indices[m - 1].last_mut().unwrap() -= TBuffer::TI::ONE;
             }
-            self.buffer.truncate(last.as_());
-            self.indices[DIM].pop();
-            Some(())
+            true
         } else {
-            None
+            false
+        }
+    }
+
+    pub fn truncate<const DIM: usize>(&mut self, row_length: usize) -> bool {
+        if row_length <= self.indices[DIM].len() {
+            self.indices[DIM].truncate(row_length + 1);
+            let mut end = self.indices[DIM][row_length];
+            for index in self.indices.iter_mut().skip(DIM + 1) {
+                index.truncate(end.as_() + 1);
+                end = *index.last().unwrap();
+            }
+            self.buffer.truncate(end.as_());
+            true
+        } else {
+            false
         }
     }
 }
@@ -614,8 +626,7 @@ macro_rules! impl_view_mut1d_owned {
 
 impl<'a, TVal, TNum> JaggedArrayView<'a, TVal, TNum, 1>
 where
-    TNum:
-        AsPrimitive<usize> + Num + NumAssignOps + std::cmp::PartialOrd + ConstOne + ConstZero,
+    TNum: AsPrimitive<usize> + Num + NumAssignOps + std::cmp::PartialOrd + ConstOne + ConstZero,
     usize: num::traits::AsPrimitive<TNum>,
 {
     pub fn as_slice(&self) -> &'a [TVal] {
@@ -625,11 +636,11 @@ where
 
 impl<'a, TVal, TNum> JaggedArrayMutView<'a, TVal, TNum, 1>
 where
-    TNum:
-        AsPrimitive<usize> + Num + NumAssignOps + std::cmp::PartialOrd + ConstOne + ConstZero,
+    TNum: AsPrimitive<usize> + Num + NumAssignOps + std::cmp::PartialOrd + ConstOne + ConstZero,
     usize: num::traits::AsPrimitive<TNum>,
 {
-    pub fn as_slice<'b:'a>(&'b self) -> &'a [TVal] { // We need this mysterious lifetime to make the borrow checker happy
+    pub fn as_slice<'b: 'a>(&'b self) -> &'a [TVal] {
+        // We need this mysterious lifetime to make the borrow checker happy
         self.buffer
     }
 
