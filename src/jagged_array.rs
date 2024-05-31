@@ -623,6 +623,21 @@ where
     }
 }
 
+impl<'a, TVal, TNum> JaggedArrayMutView<'a, TVal, TNum, 1>
+where
+    TNum:
+        AsPrimitive<usize> + Num + NumAssignOps + std::cmp::PartialOrd + ConstOne + ConstZero,
+    usize: num::traits::AsPrimitive<TNum>,
+{
+    pub fn as_slice<'b:'a>(&'b self) -> &'a [TVal] { // We need this mysterious lifetime to make the borrow checker happy
+        self.buffer
+    }
+
+    pub fn as_slice_mut(&mut self) -> &mut [TVal] {
+        self.buffer
+    }
+}
+
 impl_view!(<TBuffer as VecLike>::TI,JaggedArray<TVal, TBuffer>,TBuffer,VecLike);
 impl_view!(TNum, JaggedArrayView<'a, TVal, TNum>, TNum, Num);
 impl_view!(TNum, JaggedArrayMutView<'a, TVal, TNum>, TNum, Num);
