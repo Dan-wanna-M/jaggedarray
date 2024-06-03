@@ -75,6 +75,7 @@ mod tests {
         data.remove_last_row::<0>();
         data.remove_last_row::<0>();
         data.remove_last_row::<0>();
+        println!("{:?}", data);
         assert!(data.is_empty());
     }
 
@@ -86,6 +87,7 @@ mod tests {
         data.push_to_last_row(1);
         assert!(data[[0, 0, 0]] == 1);
         assert!(data.view::<1, 2>([0]).view::<1, 1>([0])[[0]] == 1);
+        assert!(unsafe{data.view_unchecked::<1, 2>([0]).len()==1});
         unsafe {
             assert!(*data.get_unchecked([0, 0, 0]) == 1);
         }
@@ -112,9 +114,6 @@ mod tests {
         assert!(data[[1, 0, 1]] == 11);
         assert!(data[[1, 0, 2]] == 12);
         assert!(data[[1, 0, 3]] == 13);
-        unsafe {
-            assert!(*data.get_unchecked([1, 0, 3]) == 13);
-        }
         data.new_row::<0>();
         data.new_row::<0>();
         data.new_row::<1>();
@@ -126,6 +125,7 @@ mod tests {
         }
         data.append(data.clone());
         assert!(data[[7, 0, 0]] == 100);
+        assert!(data.view::<1, 2>([7]).view::<1, 1>([0])[[0]] == 100);
         data.remove_last_row::<0>();
         assert!(data[[0, 0, 0]] == 1);
         assert!(data[[0, 1, 0]] == 4);

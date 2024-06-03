@@ -224,20 +224,11 @@ where
         Const<N>: ToUInt,
         Const<DIM>: ToUInt,
     {
-        let m = DIM;
-        if self.indices[m].len() > 1 {
-            self.indices[m].pop();
-            if m > 0 {
-                *self.indices[m - 1].last_mut().unwrap() -= TBuffer::TI::ONE;
-            }
-            true
-        } else {
-            false
-        }
+        self.truncate::<DIM>(self.indices[DIM].len() - 2)
     }
 
     pub fn truncate<const DIM: usize>(&mut self, row_length: usize) -> bool {
-        if row_length <= self.indices[DIM].len() {
+        if row_length < self.indices[DIM].len() {
             self.indices[DIM].truncate(row_length + 1);
             let mut end = self.indices[DIM][row_length];
             for index in self.indices.iter_mut().skip(DIM + 1) {
@@ -392,7 +383,8 @@ macro_rules! impl_view {
             Const<M>: ToUInt,
             Const<R>: ToUInt
             {
-                let (first,remaining) = self.indices.split_at(M);
+                let m = (M+1).min(self.indices.len());
+                let (first,remaining) = self.indices.split_at(m);
                 let (index_buffer, self_indices) = first.split_first().unwrap();
                 let mut index_buffer = &index_buffer[..];
                 for (&i, idx) in zip(index.iter(), self_indices.iter()) {
@@ -441,15 +433,16 @@ macro_rules! impl_view {
             Const<R>: ToUInt
             {
                 let mut index_buffer = self.indices.get_unchecked(0).get_unchecked(..);
-                for i in 1..M {
+                let m = (M+1).min(self.indices.len());
+                for i in 1..m {
                     index_buffer = self.indices.get_unchecked(i).get_unchecked((*index_buffer.get_unchecked(*index.get_unchecked(i-1))).as_()
                     ..(*index_buffer.get_unchecked(*index.get_unchecked(i-1)+1)+<$num>::ONE).as_());
                 }
                 let mut result = GenericArray::<&[$num], Sub1<U<R>>>::uninit();
                 let (indices, buffer) = if R > 1 {
                     result.get_unchecked_mut(0).write(index_buffer);
-                    for i in 1..R {
-                        result.get_unchecked_mut(i).write(self.indices.get_unchecked(i+M-1));
+                    for i in m..self.indices.len() {
+                        result.get_unchecked_mut(i-m+1).write(self.indices.get_unchecked(i));
                     }
                     // SAFETY: Now safe as we initialized all elements from 0 to R-1
                     (
@@ -550,7 +543,8 @@ macro_rules! impl_view_mut {
             Const<M>: ToUInt,
             Const<R>: ToUInt
             {
-                let (first,remaining) = self.indices.split_at_mut(M);
+                let m = (M+1).min(self.indices.len());
+                let (first,remaining) = self.indices.split_at_mut(m);
                 let (index_buffer, self_indices) = first.split_first_mut().unwrap();
                 let mut index_buffer = &mut index_buffer[..];
                 for (&i, idx) in zip(index.iter(), self_indices.iter_mut()) {
