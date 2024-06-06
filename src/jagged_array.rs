@@ -496,16 +496,37 @@ macro_rules! impl_view {
             type Output = TVal;
             fn index(&self, index: [usize; N]) -> &Self::Output {
                 if N > 1 {
-                    let mut buffer = &self.indices[0][..];
-                    for (&i, idx) in zip(index.iter(), self.indices[1..].iter()) {
-                        buffer = &idx[buffer[i].as_()..buffer[i + 1].as_() + 1]
+                    // SAFETY: This is safe as N > 1 implies that the indices are non-empty
+                    let mut buffer_ptr = unsafe{self.indices.get_unchecked(0).get_unchecked(..).as_ptr()};
+                    let mut end = unsafe{self.indices.get_unchecked(0).len()};
+                    for i in 1..N-1 {
+                        // SAFETY: This is safe as self.indices.len() == N-1
+                        let idx = unsafe{self.indices.get_unchecked(i)};
+                        // SAFETY: This is safe as 1< i < N
+                        let id = unsafe{(*index.get_unchecked(i-1))};
+                        assert!(id < end, "Index out of bounds");
+                        // SAFETY: This is safe as id < end
+                        let s = unsafe{*buffer_ptr.add(id)}.as_();
+                        // SAFETY: This is safe as 1 < i < N
+                        end = unsafe{(*buffer_ptr.add(id+1)).as_()+1};
+                        assert!(s < end, "Index out of bounds");
+                        // SAFETY: This is safe as s < end
+                        buffer_ptr = unsafe{idx.as_ptr().add(s.as_())};
                     }
-                    let last = index[index.len() - 2];
-                    let start_index = buffer[last].as_();
-                    let end_index = buffer[last + 1].as_();
-                    &self.buffer[start_index..end_index][index[index.len() - 1]]
+                    // SAFETY: This is safe as N > 1 implies that the indices has at least 2 elements
+                    let last = unsafe{*index.get_unchecked(N - 2)};
+                    assert!(last < end, "Index out of bounds");
+                    // SAFETY: This is safe as last < end
+                    let start_index = unsafe{(*buffer_ptr.add(last)).as_()};
+                    // SAFETY: This is safe as N > 1 implies that the indices has at least 1 elements
+                    let dst = start_index+unsafe{*index.get_unchecked(N - 1)};
+                    assert!(dst < self.buffer.len(), "Index out of bounds");
+                    unsafe{self.buffer.get_unchecked(dst)}
                 } else {
-                    &self.buffer[index[0]]
+                    // SAFETY: This is safe as N == 1 implies that the indices has at least 1 elements
+                    assert!(unsafe{*index.get_unchecked(0)} < self.buffer.len(), "Index out of bounds");
+                    // SAFETY: This is safe as we checked the bounds before
+                    unsafe{self.buffer.get_unchecked(*index.get_unchecked(0))}
                 }
             }
         }
