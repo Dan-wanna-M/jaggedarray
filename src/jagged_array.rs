@@ -4,7 +4,6 @@ use num::traits::ConstOne;
 use num::traits::ConstZero;
 use num::traits::Num;
 use num::traits::NumAssignOps;
-use std::f32::consts::E;
 use std::{
     iter::zip,
     ops::{Index, IndexMut},
@@ -294,6 +293,7 @@ where
     ///
     /// This method is unsafe because it allows for unchecked indexing
     unsafe fn get_unchecked(&self, index: [usize; N]) -> &TVal;
+    fn get(&self, index: [usize; N]) -> Option<&TVal>;
     // unsafe fn get_unchecked(&self, index: [usize; N]) -> &TVal;
     fn to_owned(self) -> JaggedArrayOwnedView<TVal, TNum, N>
     where
@@ -478,6 +478,21 @@ macro_rules! impl_view {
                 }
             }
 
+            fn get(&self, index:[usize;N])->Option<&TVal>{
+                if N > 1 {
+                    let mut buffer = &self.indices[0][..];
+                    for (&i, idx) in zip(index.iter(), self.indices[1..].iter()) {
+                        buffer = &idx.get(buffer[i].as_()..buffer[i + 1].as_() + 1)?
+                    }
+                    let last = index[index.len() - 2];
+                    let start_index = buffer[last].as_();
+                    let end_index = buffer[last + 1].as_();
+                    self.buffer.get(start_index..end_index)?.get(index[index.len() - 1])
+                } else {
+                    self.buffer.get(index[0])
+                }
+            }
+
             fn to_owned(self) -> JaggedArrayOwnedView<TVal, $num, N> where TVal:Clone {
                 let indices = self.indices.iter().map(|idx| idx.to_vec().into_boxed_slice()).collect();
                 let buffer = self.buffer.to_vec().into_boxed_slice();
@@ -496,37 +511,16 @@ macro_rules! impl_view {
             type Output = TVal;
             fn index(&self, index: [usize; N]) -> &Self::Output {
                 if N > 1 {
-                    // SAFETY: This is safe as N > 1 implies that the indices are non-empty
-                    let mut buffer_ptr = unsafe{self.indices.get_unchecked(0).get_unchecked(..).as_ptr()};
-                    let mut end = unsafe{self.indices.get_unchecked(0).len()};
-                    for i in 1..N-1 {
-                        // SAFETY: This is safe as self.indices.len() == N-1
-                        let idx = unsafe{self.indices.get_unchecked(i)};
-                        // SAFETY: This is safe as 1< i < N
-                        let id = unsafe{(*index.get_unchecked(i-1))};
-                        assert!(id < end, "Index out of bounds");
-                        // SAFETY: This is safe as id < end
-                        let s = unsafe{*buffer_ptr.add(id)}.as_();
-                        // SAFETY: This is safe as 1 < i < N
-                        end = unsafe{(*buffer_ptr.add(id+1)).as_()+1};
-                        assert!(s < end, "Index out of bounds");
-                        // SAFETY: This is safe as s < end
-                        buffer_ptr = unsafe{idx.as_ptr().add(s.as_())};
+                    let mut buffer = &self.indices[0][..];
+                    for (&i, idx) in zip(index.iter(), self.indices[1..].iter()) {
+                        buffer = &idx[buffer[i].as_()..buffer[i + 1].as_() + 1]
                     }
-                    // SAFETY: This is safe as N > 1 implies that the indices has at least 2 elements
-                    let last = unsafe{*index.get_unchecked(N - 2)};
-                    assert!(last < end, "Index out of bounds");
-                    // SAFETY: This is safe as last < end
-                    let start_index = unsafe{(*buffer_ptr.add(last)).as_()};
-                    // SAFETY: This is safe as N > 1 implies that the indices has at least 1 elements
-                    let dst = start_index+unsafe{*index.get_unchecked(N - 1)};
-                    assert!(dst < self.buffer.len(), "Index out of bounds");
-                    unsafe{self.buffer.get_unchecked(dst)}
+                    let last = index[index.len() - 2];
+                    let start_index = buffer[last].as_();
+                    let end_index = buffer[last + 1].as_();
+                    &self.buffer[start_index..end_index][index[index.len() - 1]]
                 } else {
-                    // SAFETY: This is safe as N == 1 implies that the indices has at least 1 elements
-                    assert!(unsafe{*index.get_unchecked(0)} < self.buffer.len(), "Index out of bounds");
-                    // SAFETY: This is safe as we checked the bounds before
-                    unsafe{self.buffer.get_unchecked(*index.get_unchecked(0))}
+                    &self.buffer[index[0]]
                 }
             }
         }
