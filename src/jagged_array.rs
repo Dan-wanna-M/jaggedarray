@@ -486,7 +486,7 @@ macro_rules! impl_view {
                     }
                     let last = index[index.len() - 2];
                     let start_index = buffer.get(last)?.as_();
-                    let end_index = buffer[last + 1].as_();
+                    let end_index = buffer.get(last + 1)?.as_();
                     self.buffer.get(start_index..end_index)?.get(index[index.len() - 1])
                 } else {
                     self.buffer.get(index[0])
