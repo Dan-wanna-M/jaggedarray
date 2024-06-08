@@ -1,5 +1,6 @@
 pub mod jagged_array;
 pub mod vec_like;
+mod vec_ext;
 
 #[cfg(test)]
 mod tests {

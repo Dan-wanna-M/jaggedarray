@@ -10,6 +10,7 @@ use std::{
 };
 use typenum::{Const, IsEqual, NonZero, Sub1, ToUInt, Unsigned, B1, U, U2};
 
+use crate::vec_ext::Ext;
 use crate::vec_like::VecLike;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct JaggedArray<TVal, TBuffer: VecLike, const N: usize>
@@ -111,6 +112,18 @@ where
         }
         self.buffer.reserve(additional[N - 1]);
     }
+    #[inline]
+    pub fn buffer_reserve(&mut self, additional: usize) {
+        self.buffer.reserve(additional);
+    }
+    #[inline]
+    pub fn buffer_len(&self) -> usize {
+        self.buffer.len()
+    }
+    #[inline]
+    pub fn buffer_capacity(&self) -> usize {
+        self.buffer.capacity()
+    }
 
     #[inline]
     pub fn clear(&mut self) {
@@ -143,6 +156,16 @@ where
         self.buffer.push(val);
         if let Some(value) = self.indices.last_mut() {
             *value.last_mut().unwrap() += TBuffer::TI::ONE;
+        }
+    }
+    #[inline]
+    /// # Safety
+    ///
+    /// The caller must ensure that `self.buffer_len()` < `self.buffer_capacity()`
+    pub unsafe fn push_to_last_row_unchecked(&mut self, val: TVal) {
+        unsafe { self.buffer.unchecked_push(val) };
+        if let Some(value) = self.indices.last_mut() {
+            unsafe { *value.last_mut().unwrap_unchecked() += TBuffer::TI::ONE };
         }
     }
     #[inline]
