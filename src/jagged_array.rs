@@ -482,10 +482,10 @@ macro_rules! impl_view {
                 if N > 1 {
                     let mut buffer = &self.indices[0][..];
                     for (&i, idx) in zip(index.iter(), self.indices[1..].iter()) {
-                        buffer = &idx.get(buffer[i].as_()..buffer[i + 1].as_() + 1)?
+                        buffer = &idx.get(buffer.get(i)?.as_()..buffer.get(i + 1)?.as_() + 1)?
                     }
                     let last = index[index.len() - 2];
-                    let start_index = buffer[last].as_();
+                    let start_index = buffer.get(last)?.as_();
                     let end_index = buffer[last + 1].as_();
                     self.buffer.get(start_index..end_index)?.get(index[index.len() - 1])
                 } else {
