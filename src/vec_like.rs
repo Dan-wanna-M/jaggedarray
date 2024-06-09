@@ -1,15 +1,17 @@
-use std::ops::{Deref, DerefMut, Index, IndexMut, Range, RangeFull};
+use std::ops::{Deref, DerefMut, Index, IndexMut, Range, RangeBounds, RangeFrom, RangeFull};
 
 use tinyvec::{Array, ArrayVec};
 pub trait VecLike:
     Deref<Target = [Self::TI]>
     + DerefMut
-    + Index<usize,Output=Self::TI>
-    + Index<RangeFull,Output=[Self::TI]>
-    + Index<Range<usize>,Output=[Self::TI]>
+    + Index<usize, Output = Self::TI>
+    + Index<RangeFull, Output = [Self::TI]>
+    + Index<Range<usize>, Output = [Self::TI]>
+    +Index<RangeFrom<usize>, Output = [Self::TI]>
+    +IndexMut<RangeFrom<usize>, Output = [Self::TI]>
     + IndexMut<usize>
-    + IndexMut<RangeFull,Output=[Self::TI]>
-    + IndexMut<Range<usize>,Output=[Self::TI]>
+    + IndexMut<RangeFull, Output = [Self::TI]>
+    + IndexMut<Range<usize>, Output = [Self::TI]>
     + IntoIterator<Item = Self::TI>
     + AsRef<[Self::TI]>
     + AsMut<[Self::TI]>
@@ -29,10 +31,12 @@ pub trait VecLike:
     fn insert(&mut self, index: usize, item: Self::Item);
     fn clear(&mut self);
     fn truncate(&mut self, len: usize);
+    fn remove_range<R>(&mut self, range: R)
+    where
+        R: RangeBounds<usize>;
 }
 
-impl<T> VecLike for Vec<T>
-{
+impl<T> VecLike for Vec<T> {
     type TI = T;
     #[inline]
     fn len(&self) -> usize {
@@ -66,10 +70,16 @@ impl<T> VecLike for Vec<T>
     fn truncate(&mut self, len: usize) {
         Vec::truncate(self, len)
     }
+    #[inline]
+    fn remove_range<R>(&mut self, range: R)
+    where
+        R: RangeBounds<usize>,
+    {
+        Vec::drain(self, range).for_each(drop);
+    }
 }
 
-impl<A: Array+Clone> VecLike for ArrayVec<A>
-{
+impl<A: Array + Clone> VecLike for ArrayVec<A> {
     type TI = A::Item;
     #[inline]
     fn len(&self) -> usize {
@@ -96,11 +106,16 @@ impl<A: Array+Clone> VecLike for ArrayVec<A>
         ArrayVec::clear(self)
     }
     #[inline]
-    fn reserve(&mut self, _: usize) {
-        
-    }
+    fn reserve(&mut self, _: usize) {}
     #[inline]
     fn truncate(&mut self, len: usize) {
         ArrayVec::truncate(self, len)
+    }
+    #[inline]
+    fn remove_range<R>(&mut self, range: R)
+    where
+        R: RangeBounds<usize>,
+    {
+        ArrayVec::splice(self, range, std::iter::empty());
     }
 }

@@ -4,6 +4,7 @@ use num::traits::ConstOne;
 use num::traits::ConstZero;
 use num::traits::Num;
 use num::traits::NumAssignOps;
+use std::ops::Range;
 use std::{
     iter::zip,
     ops::{Index, IndexMut},
@@ -134,7 +135,7 @@ where
         }
     }
     /// # Example
-    /// 
+    ///
     /// ```rust
     /// use jaggedarray::jagged_array::JaggedArray;
     /// let mut data = JaggedArray::<usize, Vec<u16>, 2>::new();
@@ -179,7 +180,7 @@ where
         }
     }
     /// # Example
-    /// 
+    ///
     /// ```
     /// use jaggedarray::jagged_array::JaggedArray;
     /// let mut data = JaggedArray::<usize, Vec<u16>, 2>::new();
@@ -189,7 +190,8 @@ where
     /// ```
     #[inline]
     pub fn pop_from_last_row(&mut self) -> Option<TVal> {
-        let mut iter: std::iter::Rev<std::slice::IterMut<<TBuffer as VecLike>::TI>> = self.indices.last_mut().unwrap().iter_mut().rev();
+        let mut iter: std::iter::Rev<std::slice::IterMut<<TBuffer as VecLike>::TI>> =
+            self.indices.last_mut().unwrap().iter_mut().rev();
         let last = iter.next().unwrap();
         if *last != TBuffer::TI::ZERO && iter.next().unwrap() < last {
             *last -= TBuffer::TI::ONE;
@@ -199,7 +201,7 @@ where
         }
     }
     /// # Example
-    /// 
+    ///
     /// ```
     /// use jaggedarray::jagged_array::JaggedArray;
     /// let mut data = JaggedArray::<usize, Vec<u16>, 2>::new();
@@ -217,7 +219,7 @@ where
             (self.buffer.len() - initial).as_();
     }
     /// # Example
-    /// 
+    ///
     /// ```
     /// use jaggedarray::jagged_array::JaggedArray;
     /// let mut data = JaggedArray::<usize, Vec<u16>, 2>::new();
@@ -238,7 +240,7 @@ where
             (self.buffer.len() - initial).as_();
     }
     /// # Example
-    /// 
+    ///
     /// ```
     /// use jaggedarray::jagged_array::JaggedArray;
     /// use crate::jaggedarray::jagged_array::JaggedArrayViewTrait;
@@ -261,10 +263,8 @@ where
     /// assert!(data[[0,1,4]] == 5);
     /// assert!(data[[0,1,5]] == 6);
     /// ```
-    pub fn append_from_view<const M: usize>(
-        &mut self,
-        other: JaggedArrayView<TVal, TBuffer::TI, M>,
-    ) where
+    pub fn append_from_view<const M: usize>(&mut self, other: JaggedArrayView<TVal, TBuffer::TI, M>)
+    where
         U<N>: std::ops::Sub<U<M>>,
         <U<N> as std::ops::Sub<U<M>>>::Output: Unsigned,
         U<M>: std::ops::Sub<B1>,
@@ -275,11 +275,10 @@ where
         TVal: Clone,
     {
         let skipped = N - M;
-        if skipped == N-1 {
-            *self.indices[skipped-1].last_mut().unwrap() += other.len().as_();
-        }
-        else if skipped != 0 {
-            *self.indices[skipped-1].last_mut().unwrap() += TBuffer::TI::ONE;
+        if skipped == N - 1 {
+            *self.indices[skipped - 1].last_mut().unwrap() += other.len().as_();
+        } else if skipped != 0 {
+            *self.indices[skipped - 1].last_mut().unwrap() += TBuffer::TI::ONE;
         }
         for (dst, src) in zip(self.indices.iter_mut().skip(skipped), other.indices.iter()) {
             let last = *dst.last().unwrap();
@@ -288,7 +287,7 @@ where
         self.buffer.extend_from_slice(other.buffer);
     }
     /// # Example
-    /// 
+    ///
     /// ```
     /// use jaggedarray::jagged_array::JaggedArray;
     /// let mut data = JaggedArray::<usize, Vec<u16>, 2>::new();
@@ -316,11 +315,10 @@ where
         Const<M>: ToUInt,
     {
         let skipped = N - M;
-        if skipped == N-1 {
-            *self.indices[skipped-1].last_mut().unwrap() += other.len().as_();
-        }
-        else if skipped != 0 {
-            *self.indices[skipped-1].last_mut().unwrap() += TBuffer::TI::ONE;
+        if skipped == N - 1 {
+            *self.indices[skipped - 1].last_mut().unwrap() += other.len().as_();
+        } else if skipped != 0 {
+            *self.indices[skipped - 1].last_mut().unwrap() += TBuffer::TI::ONE;
         }
         for (dst, src) in zip(self.indices.iter_mut().skip(skipped), other.indices.iter()) {
             let last = *dst.last().unwrap();
@@ -329,7 +327,7 @@ where
         self.buffer.extend(other.buffer);
     }
     /// # Example
-    /// 
+    ///
     /// ```
     /// use jaggedarray::jagged_array::JaggedArray;
     /// use crate::jaggedarray::jagged_array::JaggedArrayViewTrait;
@@ -352,7 +350,52 @@ where
         self.truncate::<DIM>(self.indices[DIM].len() - 2)
     }
     /// # Example
-    /// 
+    ///
+    /// ```
+    /// use jaggedarray::jagged_array::JaggedArray;
+    /// let mut data = JaggedArray::<usize, Vec<u16>, 2>::new();
+    /// data.new_row::<0>();
+    /// data.extend_last_row_from_slice(&[1, 2, 3]);
+    /// data.new_row::<0>();
+    /// data.extend_last_row_from_slice(&[4, 5, 6]);
+    /// data.new_row::<0>();
+    /// data.extend_last_row_from_slice(&[7, 8, 9]);
+    /// data.remove_rows(1..2);
+    /// assert!(data[[0, 0]] == 1);
+    /// assert!(data[[0, 1]] == 2);
+    /// assert!(data[[0, 2]] == 3);
+    /// assert!(data[[1, 0]] == 7);
+    /// assert!(data[[1, 1]] == 8);
+    /// assert!(data[[1, 2]] == 9);
+    /// ```
+    pub fn remove_rows(&mut self, mut range: Range<usize>)
+    where
+        U<N>: NonZero,
+    {
+        let (first, second) = self.indices.split_at_mut(1);
+        let first = &mut first[0];
+        let start = first[range.start].as_();
+        let end = first[range.end].as_();
+        first.remove_range(range.clone());
+        for i in first[range.start..].iter_mut() {
+            *i -= (end - start).as_();
+        }
+        range.start = start;
+        range.end = end;
+        for index in second {
+            let end = index[start].as_();
+            let start = index[start - 1].as_();
+            index.remove_range(range.clone());
+            for i in index[start..].iter_mut() {
+                *i -= (end - start).as_();
+            }
+            range.start = start;
+            range.end = end;
+        }
+        self.buffer.drain(range).for_each(drop);
+    }
+    /// # Example
+    ///
     /// ```
     /// use jaggedarray::jagged_array::JaggedArray;
     /// use crate::jaggedarray::jagged_array::JaggedArrayViewTrait;

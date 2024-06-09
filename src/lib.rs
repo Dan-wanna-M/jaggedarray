@@ -1,14 +1,17 @@
 pub mod jagged_array;
-pub mod vec_like;
 mod vec_ext;
+pub mod vec_like;
 
+pub use crate::jagged_array::JaggedArray;
+pub use crate::jagged_array::JaggedArray1DMutViewTrait;
+pub use crate::jagged_array::JaggedArray1DViewTrait;
+pub use crate::jagged_array::JaggedArrayMutViewTrait;
+pub use crate::jagged_array::JaggedArrayViewTrait;
 #[cfg(test)]
 mod tests {
     use jagged_array::JaggedArrayMutViewTrait;
 
     use super::*;
-    use crate::jagged_array::JaggedArray;
-    use crate::jagged_array::JaggedArray1DViewTrait;
     use crate::jagged_array::JaggedArrayViewTrait;
     #[test]
     fn push_1d_test() {
@@ -88,7 +91,7 @@ mod tests {
         data.push_to_last_row(1);
         assert!(data[[0, 0, 0]] == 1);
         assert!(data.view::<1, 2>([0]).view::<1, 1>([0])[[0]] == 1);
-        assert!(unsafe{data.view_unchecked::<1, 2>([0]).len()==1});
+        assert!(unsafe { data.view_unchecked::<1, 2>([0]).len() == 1 });
         unsafe {
             assert!(*data.get_unchecked([0, 0, 0]) == 1);
         }

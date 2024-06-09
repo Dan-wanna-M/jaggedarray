@@ -170,16 +170,16 @@ fn criterion_benchmark(c: &mut Criterion) {
     group.bench_function("3d jagged array iteration 10(U16)", |b| {
         b.iter(|| nested_3d_jagged_array_iteration(black_box(&a)))
     });
-    let a = get_3d_nested_vector(21);
-    group.bench_function("3d nested vector iteration 21", |b| {
+    let a = get_3d_nested_vector(33);
+    group.bench_function("3d nested vector iteration 33", |b| {
         b.iter(|| nested_3d_vector_iteration(black_box(&a)))
     });
-    let a = get_3d_jagged_array::<usize>(21);
-    group.bench_function("3d jagged array iteration 21", |b| {
+    let a = get_3d_jagged_array::<usize>(33);
+    group.bench_function("3d jagged array iteration 33", |b| {
         b.iter(|| nested_3d_jagged_array_iteration(black_box(&a)))
     });
-    let a = get_3d_jagged_array::<u16>(21);
-    group.bench_function("3d jagged array iteration 21(U16)", |b| {
+    let a = get_3d_jagged_array::<u16>(33);
+    group.bench_function("3d jagged array iteration 33(U16)", |b| {
         b.iter(|| nested_3d_jagged_array_iteration(black_box(&a)))
     });
     let a = get_3d_nested_vector(100);
