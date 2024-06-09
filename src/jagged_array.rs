@@ -133,6 +133,16 @@ where
             index.push(TBuffer::TI::ZERO);
         }
     }
+    /// # Example
+    /// 
+    /// ```rust
+    /// use jaggedarray::jagged_array::JaggedArray;
+    /// let mut data = JaggedArray::<usize, Vec<u16>, 2>::new();
+    /// data.new_row::<0>();
+    /// data.new_row::<0>();
+    /// data.push_to_last_row(1);
+    /// assert!(data[[1,0]] == 1);
+    /// ```
     #[inline]
     pub fn new_row<const DIM: usize>(&mut self)
     where
@@ -168,9 +178,18 @@ where
             unsafe { *value.last_mut().unwrap_unchecked() += TBuffer::TI::ONE };
         }
     }
+    /// # Example
+    /// 
+    /// ```
+    /// use jaggedarray::jagged_array::JaggedArray;
+    /// let mut data = JaggedArray::<usize, Vec<u16>, 2>::new();
+    /// data.new_row::<0>();
+    /// data.push_to_last_row(1);
+    /// assert!(data.pop_from_last_row() == Some(1));
+    /// ```
     #[inline]
     pub fn pop_from_last_row(&mut self) -> Option<TVal> {
-        let mut iter = self.indices.last_mut().unwrap().iter_mut().rev();
+        let mut iter: std::iter::Rev<std::slice::IterMut<<TBuffer as VecLike>::TI>> = self.indices.last_mut().unwrap().iter_mut().rev();
         let last = iter.next().unwrap();
         if *last != TBuffer::TI::ZERO && iter.next().unwrap() < last {
             *last -= TBuffer::TI::ONE;
@@ -179,6 +198,17 @@ where
             None
         }
     }
+    /// # Example
+    /// 
+    /// ```
+    /// use jaggedarray::jagged_array::JaggedArray;
+    /// let mut data = JaggedArray::<usize, Vec<u16>, 2>::new();
+    /// data.new_row::<0>();
+    /// data.extend_last_row([1,2,3].into_iter());
+    /// assert!(data[[0,0]] == 1);
+    /// assert!(data[[0,1]] == 2);
+    /// assert!(data[[0,2]] == 3);
+    /// ```
     #[inline]
     pub fn extend_last_row(&mut self, values: impl Iterator<Item = TVal>) {
         let initial = self.buffer.len();
@@ -186,6 +216,17 @@ where
         *self.indices.last_mut().unwrap().last_mut().unwrap() +=
             (self.buffer.len() - initial).as_();
     }
+    /// # Example
+    /// 
+    /// ```
+    /// use jaggedarray::jagged_array::JaggedArray;
+    /// let mut data = JaggedArray::<usize, Vec<u16>, 2>::new();
+    /// data.new_row::<0>();
+    /// data.extend_last_row_from_slice(&[1,2,3]);
+    /// assert!(data[[0,0]] == 1);
+    /// assert!(data[[0,1]] == 2);
+    /// assert!(data[[0,2]] == 3);
+    /// ```
     #[inline]
     pub fn extend_last_row_from_slice(&mut self, values: &[TVal])
     where
@@ -196,10 +237,33 @@ where
         *self.indices.last_mut().unwrap().last_mut().unwrap() +=
             (self.buffer.len() - initial).as_();
     }
-
+    /// # Example
+    /// 
+    /// ```
+    /// use jaggedarray::jagged_array::JaggedArray;
+    /// use crate::jaggedarray::jagged_array::JaggedArrayViewTrait;
+    /// let mut data = JaggedArray::<usize, Vec<u16>, 3>::new();
+    /// data.new_row::<0>();
+    /// data.new_row::<1>();
+    /// data.extend_last_row_from_slice(&[1,2,3]);
+    /// let mut other = JaggedArray::<usize, Vec<u16>, 2>::new();
+    /// other.new_row::<0>();
+    /// other.extend_last_row_from_slice(&[4,5,6]);
+    /// data.append_from_view(other.view::<0,2>([]));
+    /// data.append_from_view(other.view::<1,1>([0]));
+    /// assert!(data[[0,0,0]] == 1);
+    /// assert!(data[[0,0,1]] == 2);
+    /// assert!(data[[0,0,2]] == 3);
+    /// assert!(data[[0,1,0]] == 4);
+    /// assert!(data[[0,1,1]] == 5);
+    /// assert!(data[[0,1,2]] == 6);
+    /// assert!(data[[0,1,3]] == 4);
+    /// assert!(data[[0,1,4]] == 5);
+    /// assert!(data[[0,1,5]] == 6);
+    /// ```
     pub fn append_from_view<const M: usize>(
         &mut self,
-        other: &JaggedArrayView<TVal, TBuffer::TI, M>,
+        other: JaggedArrayView<TVal, TBuffer::TI, M>,
     ) where
         U<N>: std::ops::Sub<U<M>>,
         <U<N> as std::ops::Sub<U<M>>>::Output: Unsigned,
@@ -211,13 +275,36 @@ where
         TVal: Clone,
     {
         let skipped = N - M;
+        if skipped == N-1 {
+            *self.indices[skipped-1].last_mut().unwrap() += other.len().as_();
+        }
+        else if skipped != 0 {
+            *self.indices[skipped-1].last_mut().unwrap() += TBuffer::TI::ONE;
+        }
         for (dst, src) in zip(self.indices.iter_mut().skip(skipped), other.indices.iter()) {
             let last = *dst.last().unwrap();
             dst.extend(src.iter().skip(1).map(|&x| x + last));
         }
         self.buffer.extend_from_slice(other.buffer);
     }
-
+    /// # Example
+    /// 
+    /// ```
+    /// use jaggedarray::jagged_array::JaggedArray;
+    /// let mut data = JaggedArray::<usize, Vec<u16>, 2>::new();
+    /// data.new_row::<0>();
+    /// data.extend_last_row_from_slice(&[1,2,3]);
+    /// let mut other = JaggedArray::<usize, Vec<u16>, 2>::new();
+    /// other.new_row::<0>();
+    /// other.extend_last_row_from_slice(&[4,5,6]);
+    /// data.append(other);
+    /// assert!(data[[0,0]] == 1);
+    /// assert!(data[[0,1]] == 2);
+    /// assert!(data[[0,2]] == 3);
+    /// assert!(data[[1,0]] == 4);
+    /// assert!(data[[1,1]] == 5);
+    /// assert!(data[[1,2]] == 6);
+    /// ```
     pub fn append<const M: usize>(&mut self, other: JaggedArray<TVal, TBuffer, M>)
     where
         U<N>: std::ops::Sub<U<M>>,
@@ -229,13 +316,29 @@ where
         Const<M>: ToUInt,
     {
         let skipped = N - M;
+        if skipped == N-1 {
+            *self.indices[skipped-1].last_mut().unwrap() += other.len().as_();
+        }
+        else if skipped != 0 {
+            *self.indices[skipped-1].last_mut().unwrap() += TBuffer::TI::ONE;
+        }
         for (dst, src) in zip(self.indices.iter_mut().skip(skipped), other.indices.iter()) {
             let last = *dst.last().unwrap();
             dst.extend(src.iter().skip(1).map(|&x| x + last));
         }
         self.buffer.extend(other.buffer);
     }
-
+    /// # Example
+    /// 
+    /// ```
+    /// use jaggedarray::jagged_array::JaggedArray;
+    /// use crate::jaggedarray::jagged_array::JaggedArrayViewTrait;
+    /// let mut data = JaggedArray::<usize, Vec<u16>, 2>::new();
+    /// data.new_row::<0>();
+    /// data.extend_last_row_from_slice(&[1,2,3]);
+    /// data.remove_last_row::<0>();
+    /// assert!(data.is_empty());
+    /// ```
     // It may be possible to implement a drain-like variant of this method
     pub fn remove_last_row<const DIM: usize>(&mut self) -> bool
     where
@@ -248,7 +351,17 @@ where
     {
         self.truncate::<DIM>(self.indices[DIM].len() - 2)
     }
-
+    /// # Example
+    /// 
+    /// ```
+    /// use jaggedarray::jagged_array::JaggedArray;
+    /// use crate::jaggedarray::jagged_array::JaggedArrayViewTrait;
+    /// let mut data = JaggedArray::<usize, Vec<u16>, 2>::new();
+    /// data.new_row::<0>();
+    /// data.extend_last_row_from_slice(&[1,2,3]);
+    /// data.truncate::<0>(1);
+    /// assert!(data[[0,0]] == 1);
+    /// ```
     pub fn truncate<const DIM: usize>(&mut self, row_length: usize) -> bool {
         if row_length < self.indices[DIM].len() {
             self.indices[DIM].truncate(row_length + 1);
@@ -293,7 +406,7 @@ where
         Const<R>: ToUInt;
     /// # Safety
     ///
-    /// This method is unsafe because it allows for unchecked indexing
+    /// The caller must ensure that every value in `index` is within the respective bounds of the view
     unsafe fn view_unchecked<const M: usize, const R: usize>(
         &self,
         index: [usize; M],
@@ -314,10 +427,9 @@ where
         Const<R>: ToUInt;
     /// # Safety
     ///
-    /// This method is unsafe because it allows for unchecked indexing
+    /// The caller must ensure that `index` is within the bounds of the view
     unsafe fn get_unchecked(&self, index: [usize; N]) -> &TVal;
     fn get(&self, index: [usize; N]) -> Option<&TVal>;
-    // unsafe fn get_unchecked(&self, index: [usize; N]) -> &TVal;
     fn to_owned(self) -> JaggedArrayOwnedView<TVal, TNum, N>
     where
         TVal: Clone;
