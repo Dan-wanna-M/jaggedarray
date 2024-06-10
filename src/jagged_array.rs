@@ -831,7 +831,7 @@ where
         self.buffer
     }
 
-    pub fn as_slice_mut(&mut self) -> &mut [TVal] {
+    pub fn as_slice_mut<'b: 'a>(&'b mut self) -> &'a mut [TVal] {
         self.buffer
     }
 }
